@@ -9,35 +9,43 @@
 #include <unistd.h>
 
 #define MAX_LINE 256
-#define UDP 1
-#define TCP 2
+#define MAX_NAME 10
+
+void command_send ();
+void command_create_group ();
+void command_join_group (); 
+void command_send_group ();
+void command_who ();
+void command_exit ();
 
 int main(int argc, char * argv[])
 {
     struct hostent *hp;
     struct sockaddr_in sin;
-    char *host;
+    char* host;
+    char name[MAX_NAME];
     char buf[MAX_LINE];
-    int s,protocol;
+    int s;
     int len;
-    struct sockaddr_in servaddr;
+    int server_port;
     
     
-    if (argc==3) {
+    if (argc==4) {
         host = argv[1];
     }
     else {
-        fprintf(stderr, "usage: ./client host protocol\n");
+        fprintf(stderr, "usage: ./client host port name\n");
 		exit(1);
 	}
 	
-	if (strcmp(argv[2], "udp") == 0)
-		protocol = UDP;
-	else if (strcmp(argv[2], "tcp") == 0)
-		protocol = TCP;
-	else {
-		fprintf(stderr, "protocol must be udp or tcp\n");
+	server_port = atoi(argv[2]);
+	
+	if (strlen(argv[3]) == 0 || strlen(argv[2]) > MAX_NAME) {
+		fprintf(stderr, "name maximum length: %d", MAX_NAME);
 		exit(1);
+	}
+	else {
+		strcpy(name, argv[3]);
 	}
 		
 
@@ -52,60 +60,43 @@ int main(int argc, char * argv[])
     bzero((char *)&sin, sizeof(sin));
     sin.sin_family = AF_INET;
     bcopy(hp->h_addr, (char *)&sin.sin_addr, hp->h_length);
-    sin.sin_port = htons(SERVER_PORT);
+    sin.sin_port = htons(server_port);
 
 
-	if (protocol == UDP) {
-		/* active open UDP*/
-		if ((s = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
-			perror("simplex-talk: socket");
-			exit(1);
-		}
-
-		/* main loop: get and send lines of text */
-		while (fgets(buf, sizeof(buf), stdin)) {
-			buf[MAX_LINE-1] = '\0';
-			unsigned int servlen = sizeof(servaddr);
-			len = strlen(buf) + 1;
-			if(sendto(s, buf, len, 0, (struct sockaddr*)&sin, sizeof(sin)) < 0){
-				perror("sendto");
-				exit(1);
-			}
-			/*recv para receber a msg de volta do server e puts pra exibir*/
-			while(recvfrom(s, buf, MAX_LINE, 0, (struct sockaddr *) &servaddr, &servlen)){
-				/*espera por resposta do servidor para onde a mensagem foi enviada*/
-				if(servaddr.sin_addr.s_addr == sin.sin_addr.s_addr && servaddr.sin_port == htons(SERVER_PORT)){
-					fputs(buf, stdout); 
-					break;
-				}
-			}	
-		}
+	/* active open TCP*/
+	if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+		perror("simplex-talk: socket");
+		exit(1);
 	}
-	else if (protocol == TCP) {
-		/* active open TCP*/
-		if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-			perror("simplex-talk: socket");
+	if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
+		perror("simplex-talk: connect");
+		close(s);
+		exit(1);
+	}
+	/* main loop: get and send lines of text */
+	while (fgets(buf, sizeof(buf), stdin)) {
+		buf[MAX_LINE-1] = '\0';
+		len = strlen(buf) + 1;
+		if (send(s, buf, len, 0) < 0) {
+			perror("send");
 			exit(1);
 		}
-		if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-			perror("simplex-talk: connect");
-			close(s);
-			exit(1);
-		}
-		/* main loop: get and send lines of text */
-		while (fgets(buf, sizeof(buf), stdin)) {
-			buf[MAX_LINE-1] = '\0';
-			len = strlen(buf) + 1;
-			if (send(s, buf, len, 0) < 0) {
-				perror("send");
-				exit(1);
-			}
-			/*recv para receber a msg de volta do server e puts pra exibir*/
-			recv(s, buf, sizeof(buf), 0);
-			fputs(buf, stdout);		
-		}
+		/*recv para receber a msg de volta do server e puts pra exibir*/
+		recv(s, buf, sizeof(buf), 0);
+		fputs(buf, stdout);		
 	}
 }
-
+void command_send (){
+}
+void command_create_group () {
+}
+void command_join_group () {
+}
+void command_send_group () {
+}
+void command_who () {
+}
+void command_exit () {
+}
 
 

@@ -9,9 +9,16 @@
 #define LISTENQ 5
 #define MAXLINE 256
 
+void command_send ();
+void command_create_group ();
+void command_join_group (); 
+void command_send_group ();
+void command_who ();
+void command_exit ();
+
 int main(int argc, char * argv[])
 {
-	int	maxfd, udpfd, listenfd, connfd;
+	int	maxfd, listenfd, connfd;
 	int 	len;
 	fd_set	rset, allset;
 	char	buf[MAXLINE];
@@ -54,22 +61,7 @@ int main(int argc, char * argv[])
 		return 1;
 	}
 
-	/* UDP */
-	if ((udpfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		perror("socket error");
-		return 1;
-	}
-
-	if (bind(udpfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0)  {
-		perror("bind error");
-		close(udpfd);
-		return 1;
-	}
-
-	if (listenfd > udpfd)
-		maxfd = listenfd;
-	else
-		maxfd = udpfd;
+	maxfd = listenfd;
 
 
 	FD_ZERO(&allset);
@@ -78,11 +70,6 @@ int main(int argc, char * argv[])
 		exit(1);
 	}
 	FD_SET(listenfd, &allset);
-	if (udpfd >= FD_SETSIZE || udpfd < 0) {
-		perror("FD_SET error (invalid udpfd)");
-		exit(1);
-	}
-	FD_SET(udpfd, &allset);
 
 	for ( ; ; ) {
 		rset = allset;		/* structure assignment */
@@ -97,7 +84,6 @@ int main(int argc, char * argv[])
 				perror("accept error");
 				exit(1);
 			}
-
 
 			/* fork */
 			child = fork();
@@ -118,21 +104,19 @@ int main(int argc, char * argv[])
 			}
 			close(connfd);
 		}
-
-
-		if (FD_ISSET(udpfd, &rset)) { /*new datagram */
-			clilen = sizeof(cliaddr);
-		
-			if((len = recvfrom(udpfd, buf, MAXLINE, 0, (struct sockaddr *) &cliaddr, &clilen)) < 0){
-				perror("recvfrom error");
-				exit(1);
-			}
-			
-			if(sendto(udpfd, buf, len, 0, (struct sockaddr *) &cliaddr, sizeof(cliaddr)) < 0){
-				perror("sendto error");
-				exit(1);
-			}
-		}
-
 	}
 }
+
+void command_send (){
+}
+void command_create_group () {
+}
+void command_join_group () {
+}
+void command_send_group () {
+}
+void command_who () {
+}
+void command_exit () {
+}
+
