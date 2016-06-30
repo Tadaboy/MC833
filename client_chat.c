@@ -89,6 +89,25 @@ int main(int argc, char * argv[])
 	while (fgets(buf, sizeof(buf), stdin)) {
 		buf[MAX_LINE-1] = '\0';
 		len = strlen(buf) + 1;
+				
+		if(strncmp(buf, "SEND ", 5) == 0)
+			command_send();
+		else if (strncmp(buf, "CREATEG ", 8) == 0) {
+			command_create_group();
+		}
+		else if (strncmp(buf, "JOING ", 6) == 0) {
+			command_join_group();
+		}
+		else if (strncmp(buf, "SENDG ", 6) == 0) {
+			command_send_group();
+		}
+		else if (strncmp(buf, "WHO" , 4) == 0) {
+			command_who();
+		}
+		else if (strncmp(buf, "EXIT", 4) == 0) {
+			break;
+		}
+
 		if (send(s, buf, len, 0) < 0) {
 			perror("send");
 			exit(1);
@@ -100,6 +119,7 @@ int main(int argc, char * argv[])
 		}
 		fputs(buf, stdout);		
 	}
+	close(s);
 	return 0;
 }
 void command_send (){

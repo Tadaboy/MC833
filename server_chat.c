@@ -150,7 +150,7 @@ int main(int argc, char * argv[])
                                 if ( (len = read(sockfd, buf, MAXLINE)) == 0) {
                                                 /* connection closed by client */
                                         close(sockfd);
-					clientsNumber++;
+					printf("Client %s logout!\n", client[i].name);
                                         if (sockfd >= FD_SETSIZE || sockfd < 0) {
                                                 perror("FD_CLR error");
                                                 exit(1);
