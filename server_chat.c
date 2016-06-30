@@ -16,19 +16,59 @@ typedef struct _Usuario {
 	char name[MAXNAME];
 } Usuario;
 
+typedef struct Elemento {
+    int vertice;
+    struct Elemento* proximo;
+} Elemento;
+
+typedef struct Lista {
+    int tamanho;
+    Elemento* inicio;
+} Lista;
+
+typedef struct _Grupo {
+	char name[MAXNAME];
+	Lista membros;
+} Grupo;
+/*
+  Inicializa os campos da estrutura Lista.  Esta funcao deve ser
+  chamada antes que qualquer elemento seja inserido. Complexidade:
+  constante.
+  Parametros:
+  lista: apontador para a lista
+*/
+void inicializa(Lista* lista);
+
+/*
+  Insere um elemento no inicio da lista. Complexidade: constante.
+  Parametros:
+  lista: apontador para a lista
+  vertice: inteiro representando o vertice a ser inserido
+*/
+void insere(Lista* lista, int vertice);
+
+/*
+  Remove todos os elementos da lista. Complexidade: linear no tamanho
+  da lista.
+  Parametros:
+  lista: apontador para a lista
+*/
+void esvazia(Lista* lista);
+
 void command_send ();
-void command_create_group ();
-void command_join_group (); 
+void command_create_group (int* groupsNumber, int sockfd, int fundador, char* buf, Grupo* grupo);
+void command_join_group (int groupsNumber, int sockfd, int candidato, char* buf, Grupo* grupo); 
 void command_send_group ();
-void command_who ();
+void command_who (Usuario client[], int clientsNumber, int sockfd);
 void command_exit ();
 
 int main(int argc, char * argv[])
 {
 	int	maxfd, listenfd, connfd, sockfd;
 	int 	len,i,nready,size;
-	int 	clientsNumber = 0;
+	int 	clientsNumber = 0, groupsNumber = 0;
 	Usuario	client[FD_SETSIZE];
+	Grupo	grupo[FD_SETSIZE];
 	fd_set	rset, allset;
 	char	buf[MAXLINE];
 	socklen_t	clilen;
@@ -73,6 +113,8 @@ int main(int argc, char * argv[])
 	for(i = 0; i < FD_SETSIZE; i++) {
 		client[i].userfd = -1;
 		client[i].name[0] = '\0';
+		grupo[i].name[0] = '\0';
+		inicializa(&(grupo[i].membros));
 	}
 
 	FD_ZERO(&allset);
@@ -130,7 +172,7 @@ int main(int argc, char * argv[])
 					perror("send confirm name");
 					exit(1);
 				}
-                        }
+            }
 			else {
 				close(connfd); //already connected
 			}
@@ -150,7 +192,7 @@ int main(int argc, char * argv[])
                                 if ( (len = read(sockfd, buf, MAXLINE)) == 0) {
                                                 /* connection closed by client */
                                         close(sockfd);
-					printf("Client %s logout!\n", client[i].name);
+										printf("Client %s logout!\n", client[i].name);
                                         if (sockfd >= FD_SETSIZE || sockfd < 0) {
                                                 perror("FD_CLR error");
                                                 exit(1);
@@ -158,14 +200,30 @@ int main(int argc, char * argv[])
                                         FD_CLR(sockfd, &allset);
                                         client[i].userfd = -1;
                                 } else {
-					//if((size = strlen(buf)) < len) {
-					//}
-					//else {
+					if((size = strlen(buf)) < len - 2) {
+					}
+					else {
 						if(strncmp(buf, "WHO", 3) == 0) {
 							printf("WHO\n");
 							command_who(client, clientsNumber, sockfd);
 						}
-					//}
+						else if (strncmp(buf, "CREATEG ", 8) == 0) {
+							printf("CREATEG\n");
+							command_create_group(&groupsNumber, sockfd, i, buf+8, grupo);
+						}
+						else if (strncmp(buf, "JOING ", 6) == 0) {
+							printf("JOING\n");
+							command_join_group(groupsNumber, sockfd, i, buf+6, grupo);
+						}
+						else if (strncmp(buf, "SEND ", 5) == 0) {
+							printf("SEND\n");
+							command_send();
+						}
+						else if (strncmp(buf, "SENDG ", 6) == 0) {
+							printf("SENDG\n");
+							command_send_group();
+						}
+					}
                                         //send(sockfd, buf, len, 0);
 				}
                                 if (--nready <= 0)
@@ -177,9 +235,68 @@ int main(int argc, char * argv[])
 
 void command_send(){
 }
-void command_create_group () {
+void command_create_group (int* groupsNumber, int sockfd, int fundador, char* buf, Grupo* grupo) {
+	
+	int i;
+	for(i = 0; i < *groupsNumber; i++) {
+		if(strcmp(grupo[i].name, buf) == 0) {
+			printf("Group already exists!\n");
+			break;
+		}
+	}
+	if (i == FD_SETSIZE) {
+		perror("too many groups");
+		exit(1);
+	}
+
+	if(i == *groupsNumber) {
+		(*groupsNumber)++;
+		printf("%d\n", *groupsNumber);
+		strcpy(grupo[i].name, buf);
+		insere(&(grupo[i].membros), fundador);
+		printf("New group created!\n");
+		if (send(sockfd, "1", sizeof(char), 0) < 0) {
+			perror("send confirm create");
+			exit(1);
+		}
+	}
+	else {
+		if(send(sockfd, "0", sizeof(char), 0) < 0) {
+			perror("send error");
+			exit(1);
+		}
+	}
+	
 }
-void command_join_group () {
+void command_join_group (int groupsNumber, int sockfd, int candidato, char* buf, Grupo* grupo) {
+	int i;
+	printf(" = %d = \n", groupsNumber);
+	for(i = 0; i < groupsNumber; i++) {
+		if(strcmp(grupo[i].name, buf) == 0) {
+			Elemento* member = grupo[i].membros.inicio;
+			while (member != NULL) {
+				if(member->vertice == candidato) {
+					if(send(sockfd, "m", sizeof(char), 0) < 0){
+						perror("send join already");
+						exit(1);						
+					}
+					return;
+				}
+				member = member->proximo;
+			}
+			insere(&(grupo[i].membros), candidato);
+			if(send(sockfd, "j", sizeof(char), 0) < 0){
+				perror("send join success");
+				exit(1);						
+			}	
+			return;
+		}
+	}
+	if(send(sockfd, "n", sizeof(char), 0) < 0){
+		perror("send join dont exist");
+		exit(1);						
+	}
+	return;
 }
 void command_send_group () {
 }
@@ -210,5 +327,29 @@ void command_who (Usuario client[], int clientsNumber, int sockfd) {
 }
 
 void command_exit () {
+}
+
+void inicializa(Lista* lista) {
+    lista->tamanho = 0;
+    lista->inicio = NULL;
+}
+
+void insere(Lista* lista, int vertice) {
+    Elemento* novo = (Elemento*)malloc(sizeof(Elemento));
+    novo->vertice = vertice;
+    novo->proximo = lista->inicio;
+    lista->tamanho++;
+    lista->inicio = novo;
+}
+
+void esvazia(Lista* lista) {
+    Elemento* atual = lista->inicio;
+    while (atual != NULL) {
+        Elemento* proximo = atual->proximo;
+        free(atual);
+        atual = proximo;
+    }
+    lista->tamanho = 0;
+    lista->inicio = NULL;
 }
 
