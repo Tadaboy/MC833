@@ -73,6 +73,18 @@ int main(int argc, char * argv[])
 		close(s);
 		exit(1);
 	}
+
+	strcpy(buf, name);
+	len = strlen(buf)+1;
+	if (send(s, buf, len, 0) < 0) {
+		perror("send");
+		exit(1);
+	}
+	if (recv(s, buf, sizeof(buf), 0) <= 0) {
+		perror("name already connected");
+		exit(1);
+	}
+
 	/* main loop: get and send lines of text */
 	while (fgets(buf, sizeof(buf), stdin)) {
 		buf[MAX_LINE-1] = '\0';
@@ -82,9 +94,13 @@ int main(int argc, char * argv[])
 			exit(1);
 		}
 		/*recv para receber a msg de volta do server e puts pra exibir*/
-		recv(s, buf, sizeof(buf), 0);
+		if (recv(s, buf, sizeof(buf), 0) < 0) {
+			perror("recv");
+			exit(1);
+		}
 		fputs(buf, stdout);		
 	}
+	return 0;
 }
 void command_send (){
 }

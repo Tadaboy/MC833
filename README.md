@@ -1,7 +1,7 @@
 # MC833
 
 - [x] ./server port                    # Servidor é iniciado na porta <port>
-- [ ] ./client ip port name            # Cliente name é iniciado, conectado ao servidor localizado em ip:port,
+- [x] ./client ip port name            # Cliente name é iniciado, conectado ao servidor localizado em ip:port,
 registrado no servidor, e recebe uma sessão vazia (denotada aqui por '$[name]')
 - [ ] $[name] SEND peer_name msg       # Cliente name envia mensagem msg para cliente peer_name
 - [ ] $[name] CREATEG group_name       # Cliente name cria grupo group_name
