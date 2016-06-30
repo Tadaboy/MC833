@@ -28,6 +28,7 @@ int main(int argc, char * argv[])
     int s;
     int len;
     int server_port;
+    int i, n;
     
     
     if (argc==4) {
@@ -101,23 +102,41 @@ int main(int argc, char * argv[])
 		else if (strncmp(buf, "SENDG ", 6) == 0) {
 			command_send_group();
 		}
-		else if (strncmp(buf, "WHO" , 4) == 0) {
-			command_who();
+		else if (strncmp(buf, "WHO" , 3) == 0) {
+			strcpy(buf, "WHO");
+			printf("%c   usuario  %c status  %c\n",124, 124, 124);
+		
+			if (send(s, buf, len, 0) < 0) {
+				perror("send");
+				exit(1);
+			}
+			if ((len = recv(s, buf, sizeof(buf), 0)) < 0) {
+				perror("recv");
+				exit(1);
+			}
+			n = atoi(buf);
+			//printf("%d\n", n);
+			//for(i=0;i<len;i++)
+			//	printf("%c ", buf[i]);
+			char* aux = buf;
+			aux = aux + 7;
+			for(i = 0; i < n; i++) {
+				printf("%c", 124);
+				printf(" %*.*s %c ", MAX_NAME,MAX_NAME, aux, 124);
+				aux = aux + MAX_NAME;
+				if(strncmp(aux, "1", 1) == 0) {
+					printf("ONLINE  %c\n",  124);
+				}
+				else {
+					printf("OFFLINE %c\n",124);
+				}
+				aux = aux + 1;	
+			}
+			
 		}
 		else if (strncmp(buf, "EXIT", 4) == 0) {
 			break;
 		}
-
-		if (send(s, buf, len, 0) < 0) {
-			perror("send");
-			exit(1);
-		}
-		/*recv para receber a msg de volta do server e puts pra exibir*/
-		if (recv(s, buf, sizeof(buf), 0) < 0) {
-			perror("recv");
-			exit(1);
-		}
-		fputs(buf, stdout);		
 	}
 	close(s);
 	return 0;

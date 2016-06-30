@@ -26,7 +26,7 @@ void command_exit ();
 int main(int argc, char * argv[])
 {
 	int	maxfd, listenfd, connfd, sockfd;
-	int 	len,i,nready;
+	int 	len,i,nready,size;
 	int 	clientsNumber = 0;
 	Usuario	client[FD_SETSIZE];
 	fd_set	rset, allset;
@@ -157,9 +157,17 @@ int main(int argc, char * argv[])
           				}
                                         FD_CLR(sockfd, &allset);
                                         client[i].userfd = -1;
-                                } else
-                                        send(sockfd, buf, len, 0);
-
+                                } else {
+					//if((size = strlen(buf)) < len) {
+					//}
+					//else {
+						if(strncmp(buf, "WHO", 3) == 0) {
+							printf("WHO\n");
+							command_who(client, clientsNumber, sockfd);
+						}
+					//}
+                                        //send(sockfd, buf, len, 0);
+				}
                                 if (--nready <= 0)
                                         break;                          /* no more readable descriptors */
                         }
@@ -175,8 +183,32 @@ void command_join_group () {
 }
 void command_send_group () {
 }
-void command_who () {
+void command_who (Usuario client[], int clientsNumber, int sockfd) {
+	int i;
+	char buf[7];
+	sprintf(buf, "%d", clientsNumber);
+	if (send(sockfd, buf, sizeof(buf), 0) < 0) {
+		perror("send who number");
+		exit(1);
+	}
+	for(i = 0; i < clientsNumber; i++) {
+		if (send(sockfd, client[i].name, sizeof(client[i].name), 0) < 0) {
+			perror("send who 1");
+			exit(1);
+		}
+		if (client[i].userfd < 0) {
+			if (send(sockfd, "0", sizeof(char), 0) < 0) {
+				perror("send who 2");
+				exit(1);
+			}
+		}
+		else if (send(sockfd, "1", sizeof(char), 0) < 0) {
+				perror("send who 3");
+				exit(1);
+		}
+	}
 }
+
 void command_exit () {
 }
 
