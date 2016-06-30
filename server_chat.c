@@ -217,7 +217,7 @@ int main(int argc, char * argv[])
 						}
 						else if (strncmp(buf, "SEND ", 5) == 0) {
 							printf("SEND\n");
-							command_send();
+							command_send(client[i].name, buf, clientsNumber, client);
 						}
 						else if (strncmp(buf, "SENDG ", 6) == 0) {
 							printf("SENDG\n");
@@ -233,11 +233,39 @@ int main(int argc, char * argv[])
         }
 }
 
-void command_send(){
+void command_send(char* name, char* buf, int clientNumber, Usuario* client){
+	
+	int targetfd = -1;
+	
+	int i;
+	for(i = 0; i < clientNumber; i++) {
+		if(strcmp(client[i].name, buf+5) == 0) {
+			targetfd = client[i].userfd;
+		}
+	}
+	if (targetfd == -1) {
+		perror("offline");
+		exit(1);
+	}
+	
+	char mensagem[MAXLINE];
+	
+	sprintf(mensagem, "%s", buf);
+	sprintf(mensagem+strlen(buf), "%s", name);
+	sprintf(mensagem+strlen(buf)+strlen(name), "%s", buf+strlen(buf));
+	
+	if (send(targetfd, mensagem, strlen(buf)+strlen(name)+strlen(buf+strlen(buf)), 0) < 0) {
+		perror("send confirm send");
+		exit(1);
+	}
 }
 void command_create_group (int* groupsNumber, int sockfd, int fundador, char* buf, Grupo* grupo) {
 	
 	int i;
+	if (send(sockfd, "CREATEG ", 8*sizeof(char), 0) < 0) {
+		perror("send confirm createg");
+		exit(1);
+	}
 	for(i = 0; i < *groupsNumber; i++) {
 		if(strcmp(grupo[i].name, buf) == 0) {
 			printf("Group already exists!\n");
@@ -251,7 +279,7 @@ void command_create_group (int* groupsNumber, int sockfd, int fundador, char* bu
 
 	if(i == *groupsNumber) {
 		(*groupsNumber)++;
-		printf("%d\n", *groupsNumber);
+		printf("Numero de grupos criados: %d\n", *groupsNumber);
 		strcpy(grupo[i].name, buf);
 		insere(&(grupo[i].membros), fundador);
 		printf("New group created!\n");
@@ -266,11 +294,15 @@ void command_create_group (int* groupsNumber, int sockfd, int fundador, char* bu
 			exit(1);
 		}
 	}
-	
 }
 void command_join_group (int groupsNumber, int sockfd, int candidato, char* buf, Grupo* grupo) {
 	int i;
-	printf(" = %d = \n", groupsNumber);
+	
+	if(send(sockfd, "JOING ", sizeof(char), 0) < 0){
+		perror("send join");
+		exit(1);						
+	}	
+	
 	for(i = 0; i < groupsNumber; i++) {
 		if(strcmp(grupo[i].name, buf) == 0) {
 			Elemento* member = grupo[i].membros.inicio;
@@ -303,6 +335,12 @@ void command_send_group () {
 void command_who (Usuario client[], int clientsNumber, int sockfd) {
 	int i;
 	char buf[7];
+	char who[3];
+	sprintf(who,"%s","WHO");
+	if (send(sockfd, who, sizeof(who), 0) < 0) {
+		perror("send who");
+		exit(1);
+	}
 	sprintf(buf, "%d", clientsNumber);
 	if (send(sockfd, buf, sizeof(buf), 0) < 0) {
 		perror("send who number");
