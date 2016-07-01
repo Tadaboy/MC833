@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <signal.h>
 
 #define MAX_LINE 256
 #define MAX_NAME 10
@@ -25,6 +26,7 @@ int main(int argc, char * argv[])
     char* host;
     char name[MAX_NAME];
     char buf[MAX_LINE];
+	char msg[2*MAX_LINE];
     int s;
     int len;
     int server_port;
@@ -132,28 +134,66 @@ int main(int argc, char * argv[])
 				
 			}
 			else if (strncmp(buf, "EXIT", 4) == 0) {
-				break;
+				strcpy(buf, "EXIT");
+				kill(child, SIGKILL);
+				sleep(5);
+				close(s);
+				return 0;
 			}
 			else
 				printf("Comando invalido!\n");
 		}
 	}
 	else if (child != 0) {
-		int jindex = 6;
-		int cindex = 8;
-		int sindex;
-		int sgindex;
+
+		int first = 0;
+		int last = 0;
+		int flag = 0;
+		len = 1;
 		while(1) {
-			memset(buf, 0, sizeof(buf));
-			if ((len = recv(s, buf, sizeof(buf), 0)) < 0) {
-				perror("recv");
-				exit(1);
+			memset(msg, 0, sizeof(msg));
+			if (flag != first+len-1) {
+				strcpy(msg, msg+last);
+				//printf("debug msg if:\n");
+				/*for(i=0;i<len;i++)
+					printf("%d\n", msg[i]);*/
+				first = 0;
+				flag = first+len-1;
 			}
-			printf("len: %d\n", len);
-			if(strncmp(buf, "WHO", 3) == 0) {
+			else {
+				flag = 0;
+				last = 0;
+				len = 1;
+				while (!flag) {
+					last = last + len - 1;
+					memset(buf, 0, sizeof(buf));
+					if ((len = recv(s, buf, sizeof(buf), 0)) < 0) {
+						perror("recv");
+						exit(1);
+					}
+					else if (len == 0) {
+						exit(0);
+					}
+					//printf("len: %d\n", len);
+					//printf("debug recv:\n");
+					//for(i=0;i<len;i++)
+					//	printf("%c", buf[i]);
+					for(i = last; i < last+len; i++) {
+						msg[i] = buf[i];
+						if (msg[i] == '\n') {
+							flag = i;
+							//printf("last digit: %d\n", i);
+							//printf("flag: %d\n", flag);
+						}
+					}
+					first = last;
+				}
+			}
+			
+			if(strncmp(msg, "WHO", 3) == 0) {
 				printf("WHO\n");
 				printf("%c   usuario  %c status  %c\n",124, 124, 124);
-				char* aux = buf + 3;
+				char* aux = msg + 3;
 				n = atoi(aux);
 				aux = aux + 7;
 				for(i = 0; i < n; i++) {
@@ -169,51 +209,44 @@ int main(int argc, char * argv[])
 					aux = aux + 1;	
 				}
 			}
-			else if (strncmp(buf, "CREATEG ", 8) == 0 || cindex == 0) {
-				if(buf[cindex] == 0) {
-					if(cindex == 8)
-						cindex = 0;
-				}
-				else if(buf[cindex] == '1') {
+			else if (strncmp(msg, "CREATEG ", 8) == 0) {
+				if(msg[8] == '1') {
 					printf("Grupo criado com sucesso!\n");
-					cindex = 8;
 				}
 				else {
 					printf("Nao possivel criar o grupo\n");
-					cindex = 8;
 				}
 			}
-			else if (strncmp(buf, "JOING ", 6) == 0 || jindex == 6) {
-				if(buf[jindex] == 0)
-					jindex = 0;
-				else if(buf[jindex] == 'j') {
+			else if (strncmp(msg, "JOING ", 6) == 0 ) {
+				if(msg[6] == 'j') {
 					printf("Entrou no grupo!\n");
-					jindex = 6;
 				}
-				else if (buf[jindex] == 'm') {
+				else if (msg[6] == 'm') {
 					printf("Voce ja eh membro!\n");
-					jindex = 6;
 				}
 				else {
 					printf("Nao existe esse grupo!\n");
-					jindex = 6;
 				}
 				
 			}
-			else if (strncmp(buf, "SEND ", 5) == 0) {
+			else if (strncmp(msg, "SEND ", 5) == 0) {
 				printf("SEND\n");
-				char* remetente = buf+5;
-				char* msg = remetente + strlen(remetente);
-				printf("[%s] %s\n", remetente, msg);
+				char* remetente = msg+5;
+				//char* msg = remetente + strlen(remetente);
+				printf("%s\n", remetente);
 				
 			}
-			else if (strncmp(buf, "SENDG ", 6) == 0) {
+			else if (strncmp(msg, "SENDG ", 6) == 0) {
 				printf("SENDG\n");
 				
 			}
+			else if (strncmp(msg, "EXIT", 4) == 0) {
+				close(s);
+				exit(0);
+			}
+			
 		}
 	}
-	close(s);
 	return 0;
 }
 void command_send (){

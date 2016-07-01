@@ -196,36 +196,37 @@ int main(int argc, char * argv[])
                                         if (sockfd >= FD_SETSIZE || sockfd < 0) {
                                                 perror("FD_CLR error");
                                                 exit(1);
-          				}
+										}
                                         FD_CLR(sockfd, &allset);
                                         client[i].userfd = -1;
                                 } else {
-					if((size = strlen(buf)) < len - 2) {
-					}
-					else {
-						if(strncmp(buf, "WHO", 3) == 0) {
-							printf("WHO\n");
-							command_who(client, clientsNumber, sockfd);
-						}
-						else if (strncmp(buf, "CREATEG ", 8) == 0) {
-							printf("CREATEG\n");
-							command_create_group(&groupsNumber, sockfd, i, buf+8, grupo);
-						}
-						else if (strncmp(buf, "JOING ", 6) == 0) {
-							printf("JOING\n");
-							command_join_group(groupsNumber, sockfd, i, buf+6, grupo);
-						}
-						else if (strncmp(buf, "SEND ", 5) == 0) {
-							printf("SEND\n");
-							command_send(client[i].name, buf, clientsNumber, client);
-						}
-						else if (strncmp(buf, "SENDG ", 6) == 0) {
-							printf("SENDG\n");
-							command_send_group();
-						}
-					}
+									if((size = strlen(buf)) < len - 2) {
+									}
+									else {
+										if(strncmp(buf, "WHO", 3) == 0) {
+											printf("WHO\n");
+											command_who(client, clientsNumber, sockfd);
+										}
+										else if (strncmp(buf, "CREATEG ", 8) == 0) {
+											printf("CREATEG\n");
+											command_create_group(&groupsNumber, sockfd, i, buf+8, grupo);
+										}
+										else if (strncmp(buf, "JOING ", 6) == 0) {
+											printf("JOING\n");
+											command_join_group(groupsNumber, sockfd, i, buf+6, grupo);
+										}
+										else if (strncmp(buf, "SEND ", 5) == 0) {
+											printf("SEND\n");
+											command_send(client[i].name, buf, clientsNumber, client);
+										}
+										else if (strncmp(buf, "SENDG ", 6) == 0) {
+											printf("SENDG\n");
+											command_send_group();
+										}
+										
+									}
                                         //send(sockfd, buf, len, 0);
-				}
+								}
                                 if (--nready <= 0)
                                         break;                          /* no more readable descriptors */
                         }
@@ -236,10 +237,24 @@ int main(int argc, char * argv[])
 void command_send(char* name, char* buf, int clientNumber, Usuario* client){
 	
 	int targetfd = -1;
+	char aux[MAXNAME];
+	int i,j = MAXNAME+4;
+	for(i=0;i<MAXNAME;i++) {
+		if (buf[i+5] != ' ')
+			aux[i] = buf[i+5];
+		else {
+			j = i+6;
+			while(i < MAXNAME) {
+				aux[i] = 0;
+				i++;
+			}
+			break;
+		}
+	}
 	
-	int i;
+	
 	for(i = 0; i < clientNumber; i++) {
-		if(strcmp(client[i].name, buf+5) == 0) {
+		if(strcmp(client[i].name, aux) == 0) {
 			targetfd = client[i].userfd;
 		}
 	}
@@ -249,12 +264,25 @@ void command_send(char* name, char* buf, int clientNumber, Usuario* client){
 	}
 	
 	char mensagem[MAXLINE];
+	char msg[MAXLINE];
+	for(i=0;i<MAXLINE;i++) {
+		if(buf[j+i] != 0) {
+			mensagem[i] = buf[j+i];
+		}
+		else {
+			while(i < MAXLINE) {
+				mensagem[i] = 0;
+				i++;
+			}
+			break;
+		}
+	}
+		
+	sprintf(mensagem, "SEND ");
+	sprintf(mensagem+5, "%s", name);
+	sprintf(mensagem+5+strlen(name)+1, "%s\n\0", msg);
 	
-	sprintf(mensagem, "%s", buf);
-	sprintf(mensagem+strlen(buf), "%s", name);
-	sprintf(mensagem+strlen(buf)+strlen(name), "%s", buf+strlen(buf));
-	
-	if (send(targetfd, mensagem, strlen(buf)+strlen(name)+strlen(buf+strlen(buf)), 0) < 0) {
+	if (send(targetfd, mensagem, strlen(mensagem), 0) < 0) {
 		perror("send confirm send");
 		exit(1);
 	}
@@ -269,6 +297,7 @@ void command_create_group (int* groupsNumber, int sockfd, int fundador, char* bu
 	for(i = 0; i < *groupsNumber; i++) {
 		if(strcmp(grupo[i].name, buf) == 0) {
 			printf("Group already exists!\n");
+			i = i - 1;
 			break;
 		}
 	}
@@ -283,13 +312,13 @@ void command_create_group (int* groupsNumber, int sockfd, int fundador, char* bu
 		strcpy(grupo[i].name, buf);
 		insere(&(grupo[i].membros), fundador);
 		printf("New group created!\n");
-		if (send(sockfd, "1", sizeof(char), 0) < 0) {
+		if (send(sockfd, "1\n", 2*sizeof(char), 0) < 0) {
 			perror("send confirm create");
 			exit(1);
 		}
 	}
 	else {
-		if(send(sockfd, "0", sizeof(char), 0) < 0) {
+		if(send(sockfd, "0\n", 2*sizeof(char), 0) < 0) {
 			perror("send error");
 			exit(1);
 		}
@@ -298,7 +327,7 @@ void command_create_group (int* groupsNumber, int sockfd, int fundador, char* bu
 void command_join_group (int groupsNumber, int sockfd, int candidato, char* buf, Grupo* grupo) {
 	int i;
 	
-	if(send(sockfd, "JOING ", sizeof(char), 0) < 0){
+	if(send(sockfd, "JOING ", 6*sizeof(char), 0) < 0){
 		perror("send join");
 		exit(1);						
 	}	
@@ -308,7 +337,7 @@ void command_join_group (int groupsNumber, int sockfd, int candidato, char* buf,
 			Elemento* member = grupo[i].membros.inicio;
 			while (member != NULL) {
 				if(member->vertice == candidato) {
-					if(send(sockfd, "m", sizeof(char), 0) < 0){
+					if(send(sockfd, "m\n", 2*sizeof(char), 0) < 0){
 						perror("send join already");
 						exit(1);						
 					}
@@ -317,14 +346,14 @@ void command_join_group (int groupsNumber, int sockfd, int candidato, char* buf,
 				member = member->proximo;
 			}
 			insere(&(grupo[i].membros), candidato);
-			if(send(sockfd, "j", sizeof(char), 0) < 0){
+			if(send(sockfd, "j\n", 2*sizeof(char), 0) < 0){
 				perror("send join success");
 				exit(1);						
 			}	
 			return;
 		}
 	}
-	if(send(sockfd, "n", sizeof(char), 0) < 0){
+	if(send(sockfd, "n\n", 2*sizeof(char), 0) < 0){
 		perror("send join dont exist");
 		exit(1);						
 	}
@@ -362,6 +391,10 @@ void command_who (Usuario client[], int clientsNumber, int sockfd) {
 				exit(1);
 		}
 	}
+	if (send(sockfd, "\n", sizeof(char), 0) < 0) {
+		perror("send who 2");
+		exit(1);
+	}		
 }
 
 void command_exit () {
